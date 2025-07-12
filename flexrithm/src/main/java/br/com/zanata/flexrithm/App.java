@@ -15,9 +15,14 @@ import javafx.util.Duration;
 
 public class App extends Application {
 
+    // --- Constantes de Configuração ---
+    private static final int CICLO_TRABALHO_SEGUNDOS = 10; // Apenas 10 segundos para testar
+    private static final int GANHO_DESCANSO_SEGUNDOS = 5;  // Ganha 5 segundos de descanso
+
     // --- Variáveis de Estado ---
     private Timeline timeline;
-    private int tempoEmSegundos = 0;
+    private int tempoTrabalhoSegundos = 0;
+    private int saldoDescansoSegundos = 0;
     private boolean isTimerRunning = false;
 
     // --- Componentes da Interface ---
@@ -28,7 +33,6 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        // --- Inicializa os componentes ---
         timerLabel = new Label("00:00:00");
         timerLabel.setFont(new Font("Arial", 48));
 
@@ -37,16 +41,11 @@ public class App extends Application {
         iniciarTrabalhoButton = new Button("Iniciar Trabalho");
         usarDescansoButton = new Button("Usar Descanso");
         
-        // --- Configura as Ações dos Botões ---
         iniciarTrabalhoButton.setOnAction(e -> toggleTimer());
-        
-        // Ação para o botão de usar descanso (será implementada no futuro)
         usarDescansoButton.setOnAction(e -> System.out.println("Botão 'Usar Descanso' clicado!"));
 
-        // --- Configura o Timer ---
         setupTimer();
 
-        // --- Monta o Layout da Tela ---
         VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
@@ -58,12 +57,19 @@ public class App extends Application {
     }
     
     private void setupTimer() {
-        // Cria uma timeline que executa a cada 1 segundo
         timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-            tempoEmSegundos++;
-            timerLabel.setText(formatarTempo(tempoEmSegundos));
+            // Incrementa o tempo de trabalho
+            tempoTrabalhoSegundos++;
+            timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
+
+            // Verifica se um ciclo de trabalho foi completado
+            if (tempoTrabalhoSegundos > 0 && tempoTrabalhoSegundos % CICLO_TRABALHO_SEGUNDOS == 0) {
+                saldoDescansoSegundos += GANHO_DESCANSO_SEGUNDOS;
+                saldoDescansoLabel.setText("Descanso acumulado: " + formatarTempoDescanso(saldoDescansoSegundos));
+                System.out.println("Parabéns! Você ganhou " + (GANHO_DESCANSO_SEGUNDOS / 60) + " minutos de descanso!");
+            }
         }));
-        timeline.setCycleCount(Timeline.INDEFINITE); // Repete para sempre
+        timeline.setCycleCount(Timeline.INDEFINITE);
     }
 
     private void toggleTimer() {
@@ -74,14 +80,21 @@ public class App extends Application {
             timeline.play();
             iniciarTrabalhoButton.setText("Pausar Trabalho");
         }
-        isTimerRunning = !isTimerRunning; // Inverte o estado
+        isTimerRunning = !isTimerRunning;
     }
 
-    private String formatarTempo(int totalSegundos) {
+    private String formatarTempoTrabalho(int totalSegundos) {
         int horas = totalSegundos / 3600;
         int minutos = (totalSegundos % 3600) / 60;
         int segundos = totalSegundos % 60;
         return String.format("%02d:%02d:%02d", horas, minutos, segundos);
+    }
+
+    // Formata o tempo de descanso (sem horas)
+    private String formatarTempoDescanso(int totalSegundos) {
+        int minutos = totalSegundos / 60;
+        int segundos = totalSegundos % 60;
+        return String.format("%02d:%02d", minutos, segundos);
     }
 
     public static void main(String[] args) {
