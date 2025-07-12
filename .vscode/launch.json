@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Launch Flexrithm",
+            "request": "launch",
+            "mainClass": "br.com.zanata.flexrithm.App",
+            "vmArgs": "--module-path /home/leo_zanata/Projetos/Java/openjfx-21.0.7_linux-x64_bin-sdk/javafx-sdk-21.0.7/lib --add-modules javafx.controls,javafx.fxml"
+        }
+    ]
+}
