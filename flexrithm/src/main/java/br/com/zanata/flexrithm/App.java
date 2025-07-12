@@ -9,21 +9,26 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
 public class App extends Application {
 
+    // --- Enum para controle de estado ---
+    private enum EstadoApp { PARADO, TRABALHANDO, DESCANSO }
+
     // --- Constantes de Configuração ---
-    private static final int CICLO_TRABALHO_SEGUNDOS = 10; // Apenas 10 segundos para testar
-    private static final int GANHO_DESCANSO_SEGUNDOS = 5;  // Ganha 5 segundos de descanso
+    private static final int CICLO_TRABALHO_SEGUNDOS = 10; // A CADA 10 SEGUNDOS PARA TESTE
+    private static final int GANHO_DESCANSO_SEGUNDOS = 15; // GANHA 15 SEGUNDOS PARA TESTE
 
     // --- Variáveis de Estado ---
-    private Timeline timeline;
+    private Timeline trabalhoTimeline;
+    private Timeline descansoTimeline;
     private int tempoTrabalhoSegundos = 0;
     private int saldoDescansoSegundos = 0;
-    private boolean isTimerRunning = false;
+    private EstadoApp estadoAtual = EstadoApp.PARADO;
 
     // --- Componentes da Interface ---
     private Label timerLabel;
@@ -41,11 +46,15 @@ public class App extends Application {
         iniciarTrabalhoButton = new Button("Iniciar Trabalho");
         usarDescansoButton = new Button("Usar Descanso");
         
-        iniciarTrabalhoButton.setOnAction(e -> toggleTimer());
-        usarDescansoButton.setOnAction(e -> System.out.println("Botão 'Usar Descanso' clicado!"));
+        // --- Configurar Ações ---
+        iniciarTrabalhoButton.setOnAction(e -> toggleTrabalho());
+        usarDescansoButton.setOnAction(e -> iniciarModoDescanso());
 
-        setupTimer();
+        // --- Configurar os Timers ---
+        setupTrabalhoTimer();
+        setupDescansoTimer();
 
+        // --- Montar o Layout ---
         VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
@@ -54,33 +63,87 @@ public class App extends Application {
         primaryStage.setTitle("Flexrithm");
         primaryStage.setScene(scene);
         primaryStage.show();
+        
+        atualizarUI(); // Atualiza a UI para o estado inicial
     }
     
-    private void setupTimer() {
-        timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-            // Incrementa o tempo de trabalho
+    // Timer para contar o tempo de trabalho (para cima)
+    private void setupTrabalhoTimer() {
+        trabalhoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             tempoTrabalhoSegundos++;
             timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
 
-            // Verifica se um ciclo de trabalho foi completado
             if (tempoTrabalhoSegundos > 0 && tempoTrabalhoSegundos % CICLO_TRABALHO_SEGUNDOS == 0) {
                 saldoDescansoSegundos += GANHO_DESCANSO_SEGUNDOS;
-                saldoDescansoLabel.setText("Descanso acumulado: " + formatarTempoDescanso(saldoDescansoSegundos));
-                System.out.println("Parabéns! Você ganhou " + (GANHO_DESCANSO_SEGUNDOS / 60) + " minutos de descanso!");
+                atualizarUI();
             }
         }));
-        timeline.setCycleCount(Timeline.INDEFINITE);
+        trabalhoTimeline.setCycleCount(Timeline.INDEFINITE);
     }
 
-    private void toggleTimer() {
-        if (isTimerRunning) {
-            timeline.pause();
-            iniciarTrabalhoButton.setText("Retomar Trabalho");
-        } else {
-            timeline.play();
-            iniciarTrabalhoButton.setText("Pausar Trabalho");
+    // Timer para contar o tempo de descanso (para baixo)
+    private void setupDescansoTimer() {
+        descansoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            saldoDescansoSegundos--;
+            timerLabel.setText(formatarTempoDescanso(saldoDescansoSegundos));
+            
+            // Se o descanso acabar, volta ao estado parado
+            if (saldoDescansoSegundos <= 0) {
+                descansoTimeline.stop();
+                estadoAtual = EstadoApp.PARADO;
+                timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos)); // Mostra o tempo de trabalho novamente
+                atualizarUI();
+            }
+        }));
+        descansoTimeline.setCycleCount(Timeline.INDEFINITE);
+    }
+
+    // Controla o início e pausa do trabalho
+    private void toggleTrabalho() {
+        if (estadoAtual == EstadoApp.TRABALHANDO) {
+            trabalhoTimeline.pause();
+            estadoAtual = EstadoApp.PARADO;
+        } else if (estadoAtual == EstadoApp.PARADO) {
+            trabalhoTimeline.play();
+            estadoAtual = EstadoApp.TRABALHANDO;
         }
-        isTimerRunning = !isTimerRunning;
+        atualizarUI();
+    }
+
+    // Ativa o modo de descanso
+    private void iniciarModoDescanso() {
+        // Só pode usar o descanso se tiver saldo e não estiver trabalhando/descansando
+        if (saldoDescansoSegundos > 0 && estadoAtual == EstadoApp.PARADO) {
+            trabalhoTimeline.pause(); // Garante que o timer de trabalho está pausado
+            estadoAtual = EstadoApp.DESCANSO;
+            descansoTimeline.play();
+            atualizarUI();
+        }
+    }
+
+    // Atualiza a aparência e estado dos botões e labels
+    private void atualizarUI() {
+        saldoDescansoLabel.setText("Descanso acumulado: " + formatarTempoDescanso(saldoDescansoSegundos));
+
+        switch (estadoAtual) {
+            case PARADO:
+                iniciarTrabalhoButton.setText("Iniciar Trabalho");
+                iniciarTrabalhoButton.setDisable(false);
+                usarDescansoButton.setDisable(saldoDescansoSegundos <= 0); // Desativa se não tiver saldo
+                timerLabel.setTextFill(Color.BLACK);
+                break;
+            case TRABALHANDO:
+                iniciarTrabalhoButton.setText("Pausar Trabalho");
+                iniciarTrabalhoButton.setDisable(false);
+                usarDescansoButton.setDisable(true); // Não pode usar descanso enquanto trabalha
+                timerLabel.setTextFill(Color.BLACK);
+                break;
+            case DESCANSO:
+                iniciarTrabalhoButton.setDisable(true); // Não pode trabalhar enquanto descansa
+                usarDescansoButton.setDisable(true);
+                timerLabel.setTextFill(Color.GREEN); // Muda a cor para indicar o descanso
+                break;
+        }
     }
 
     private String formatarTempoTrabalho(int totalSegundos) {
@@ -89,8 +152,7 @@ public class App extends Application {
         int segundos = totalSegundos % 60;
         return String.format("%02d:%02d:%02d", horas, minutos, segundos);
     }
-
-    // Formata o tempo de descanso (sem horas)
+    
     private String formatarTempoDescanso(int totalSegundos) {
         int minutos = totalSegundos / 60;
         int segundos = totalSegundos % 60;
