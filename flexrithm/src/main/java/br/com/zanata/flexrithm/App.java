@@ -1,5 +1,7 @@
 package br.com.zanata.flexrithm;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -9,44 +11,77 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
-/**
- * Classe principal do Flexrithm
- */
 public class App extends Application {
+
+    // --- Variáveis de Estado ---
+    private Timeline timeline;
+    private int tempoEmSegundos = 0;
+    private boolean isTimerRunning = false;
+
+    // --- Componentes da Interface ---
+    private Label timerLabel;
+    private Label saldoDescansoLabel;
+    private Button iniciarTrabalhoButton;
+    private Button usarDescansoButton;
 
     @Override
     public void start(Stage primaryStage) {
-        
-        // Label para o display do tempo
-        Label timerLabel = new Label("00:00:00");
-        timerLabel.setFont(new Font("Arial", 48)); // Deixa a fonte do timer bem grande
+        // --- Inicializa os componentes ---
+        timerLabel = new Label("00:00:00");
+        timerLabel.setFont(new Font("Arial", 48));
 
-        // Label para o saldo de descanso
-        Label saldoDescansoLabel = new Label("Descanso acumulado: 00:00");
+        saldoDescansoLabel = new Label("Descanso acumulado: 00:00");
 
-        // Botões de ação
-        Button iniciarTrabalhoButton = new Button("Iniciar Trabalho");
-        Button usarDescansoButton = new Button("Usar Descanso");
+        iniciarTrabalhoButton = new Button("Iniciar Trabalho");
+        usarDescansoButton = new Button("Usar Descanso");
         
-        // VBox para empilhar os elementos verticalmente
-        VBox root = new VBox();
-        root.setSpacing(20); // Espaçamento de 20 pixels entre os elementos
-        root.setAlignment(Pos.CENTER); // Centraliza tudo
-        root.setPadding(new Insets(20)); // Adiciona uma margem interna de 20 pixels
+        // --- Configura as Ações dos Botões ---
+        iniciarTrabalhoButton.setOnAction(e -> toggleTimer());
+        
+        // Ação para o botão de usar descanso (será implementada no futuro)
+        usarDescansoButton.setOnAction(e -> System.out.println("Botão 'Usar Descanso' clicado!"));
 
-        // Adiciona todos os componentes ao VBox
-        root.getChildren().addAll(timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton);
-        
-        // Cria a cena com o layout (definindo o tamanho da janela)
+        // --- Configura o Timer ---
+        setupTimer();
+
+        // --- Monta o Layout da Tela ---
+        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(20));
+
         Scene scene = new Scene(root, 400, 300);
-
-        // Configura a janela principal (chamada de "Stage")
         primaryStage.setTitle("Flexrithm");
         primaryStage.setScene(scene);
-
-        // Mostra a janela
         primaryStage.show();
+    }
+    
+    private void setupTimer() {
+        // Cria uma timeline que executa a cada 1 segundo
+        timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            tempoEmSegundos++;
+            timerLabel.setText(formatarTempo(tempoEmSegundos));
+        }));
+        timeline.setCycleCount(Timeline.INDEFINITE); // Repete para sempre
+    }
+
+    private void toggleTimer() {
+        if (isTimerRunning) {
+            timeline.pause();
+            iniciarTrabalhoButton.setText("Retomar Trabalho");
+        } else {
+            timeline.play();
+            iniciarTrabalhoButton.setText("Pausar Trabalho");
+        }
+        isTimerRunning = !isTimerRunning; // Inverte o estado
+    }
+
+    private String formatarTempo(int totalSegundos) {
+        int horas = totalSegundos / 3600;
+        int minutos = (totalSegundos % 3600) / 60;
+        int segundos = totalSegundos % 60;
+        return String.format("%02d:%02d:%02d", horas, minutos, segundos);
     }
 
     public static void main(String[] args) {
