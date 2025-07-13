@@ -31,16 +31,13 @@ public class App extends Application {
     private int ganhoDescansoSegundos = 5 * 60;
 
     private Stage primaryStage;
-    private Timeline trabalhoTimeline;
-    private Timeline descansoTimeline;
+    private Timeline trabalhoTimeline, descansoTimeline;
     private int tempoTrabalhoSegundos = 0;
     private int saldoDescansoSegundos = 0;
     private EstadoApp estadoAtual = EstadoApp.PARADO;
-
     private Label timerLabel, saldoDescansoLabel;
-    private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton;
+    private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton, finalizarTrabalhoButton;
 
-    // --- Persistência de Dados ---
     private final Gson gson = new Gson();
     private final String CAMINHO_ARQUIVO_SAVE = System.getProperty("user.home") + "/flexrithm_dados.json";
 
@@ -56,19 +53,21 @@ public class App extends Application {
         iniciarTrabalhoButton = new Button();
         usarDescansoButton = new Button();
         configuracoesButton = new Button("Configurações");
+        finalizarTrabalhoButton = new Button("Finalizar Trabalho");
 
         iniciarTrabalhoButton.setOnAction(e -> toggleTrabalho());
         usarDescansoButton.setOnAction(e -> toggleDescanso());
         configuracoesButton.setOnAction(e -> abrirTelaConfiguracoes());
+        finalizarTrabalhoButton.setOnAction(e -> finalizarTrabalho());
 
         setupTrabalhoTimer();
         setupDescansoTimer();
 
-        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton, configuracoesButton);
+        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton, finalizarTrabalhoButton, configuracoesButton); // BOTÃO NOVO ADICIONADO AO LAYOUT
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
 
-        Scene scene = new Scene(root, 400, 350);
+        Scene scene = new Scene(root, 400, 400);
         primaryStage.setTitle("Flexrithm");
         primaryStage.setScene(scene);
         primaryStage.show();
@@ -80,6 +79,14 @@ public class App extends Application {
     public void stop() {
         salvarDados();
         System.out.println("Aplicativo fechado, dados salvos!");
+    }
+
+    private void finalizarTrabalho() {
+        if (estadoAtual == EstadoApp.PARADO || estadoAtual == EstadoApp.DESCANSO_PAUSADO) {
+            tempoTrabalhoSegundos = 0;
+            salvarDados();
+            atualizarUI(); 
+        }
     }
 
     private void abrirTelaConfiguracoes() {
@@ -183,6 +190,11 @@ public class App extends Application {
 
     private void atualizarUI() {
         saldoDescansoLabel.setText("Descanso acumulado: " + formatarTempoDescanso(saldoDescansoSegundos));
+        
+        boolean podeFinalizar = tempoTrabalhoSegundos > 0 && 
+                               (estadoAtual == EstadoApp.PARADO || estadoAtual == EstadoApp.DESCANSO_PAUSADO);
+        finalizarTrabalhoButton.setDisable(!podeFinalizar);
+
         switch (estadoAtual) {
             case PARADO:
                 iniciarTrabalhoButton.setText("Iniciar Trabalho");
