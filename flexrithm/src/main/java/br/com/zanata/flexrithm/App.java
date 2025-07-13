@@ -1,8 +1,8 @@
 package br.com.zanata.flexrithm;
 
-import javafx.application.Application;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -19,124 +19,107 @@ import javafx.util.Duration;
 
 public class App extends Application {
 
-    private enum EstadoApp { PARADO, TRABALHANDO, DESCANSO }
+    private enum EstadoApp {
+        PARADO, TRABALHANDO, DESCANSO, DESCANSO_PAUSADO
+    }
 
-    // --- Configurações (agora são variáveis) ---
-    private int cicloTrabalhoSegundos = 30 * 60; // Padrão: 30 min
-    private int ganhoDescansoSegundos = 5 * 60;  // Padrão: 5 min
+    private int cicloTrabalhoSegundos = 10; // Padrão de teste
+    private int ganhoDescansoSegundos = 15; // Padrão de teste
 
-    // --- Variáveis de Estado ---
-    private Stage primaryStage; // Guardar referência da janela principal
+    private Stage primaryStage;
     private Timeline trabalhoTimeline;
     private Timeline descansoTimeline;
     private int tempoTrabalhoSegundos = 0;
     private int saldoDescansoSegundos = 0;
     private EstadoApp estadoAtual = EstadoApp.PARADO;
 
-    // --- Componentes da Interface ---
     private Label timerLabel, saldoDescansoLabel;
     private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton;
 
     @Override
     public void start(Stage primaryStage) {
-        this.primaryStage = primaryStage; // Salva a referência da janela principal
-
-        // --- Inicializar componentes ---
+        this.primaryStage = primaryStage;
         timerLabel = new Label("00:00:00");
         timerLabel.setFont(new Font("Arial", 48));
-        saldoDescansoLabel = new Label(); // Será atualizado pelo atualizarUI()
+        saldoDescansoLabel = new Label();
         iniciarTrabalhoButton = new Button();
-        usarDescansoButton = new Button("Usar Descanso");
+        usarDescansoButton = new Button();
         configuracoesButton = new Button("Configurações");
 
-        // --- Configurar Ações ---
         iniciarTrabalhoButton.setOnAction(e -> toggleTrabalho());
-        usarDescansoButton.setOnAction(e -> iniciarModoDescanso());
+        usarDescansoButton.setOnAction(e -> toggleDescanso()); // Ação atualizada
         configuracoesButton.setOnAction(e -> abrirTelaConfiguracoes());
 
-        // --- Configurar Timers ---
         setupTrabalhoTimer();
         setupDescansoTimer();
 
-        // --- Montar Layout ---
-        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton, configuracoesButton);
+        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton,
+                configuracoesButton);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
 
-        Scene scene = new Scene(root, 400, 350); // Aumentei um pouco a altura
+        Scene scene = new Scene(root, 400, 350);
         primaryStage.setTitle("Flexrithm");
         primaryStage.setScene(scene);
         primaryStage.show();
-        
+
         atualizarUI();
     }
-    
-    // MÉTODO NOVO: Cria e exibe a janela de configurações
+
     private void abrirTelaConfiguracoes() {
+        // ... (código da tela de configurações permanece o mesmo) ...
         Stage settingsStage = new Stage();
-        settingsStage.initModality(Modality.APPLICATION_MODAL); // Bloqueia a janela principal
+        settingsStage.initModality(Modality.APPLICATION_MODAL);
         settingsStage.initOwner(primaryStage);
         settingsStage.setTitle("Configurações do Flexrithm");
-
-        // Layout em Grade para organizar labels e campos de texto
         GridPane grid = new GridPane();
         grid.setPadding(new Insets(20));
         grid.setHgap(10);
         grid.setVgap(10);
-
-        // --- Componentes da nova janela ---
         Label trabalhoLabel = new Label("A cada (minutos de trabalho):");
         TextField trabalhoTextField = new TextField(String.valueOf(cicloTrabalhoSegundos / 60));
-
         Label descansoLabel = new Label("Ganhar (minutos de descanso):");
         TextField descansoTextField = new TextField(String.valueOf(ganhoDescansoSegundos / 60));
-
         Button salvarButton = new Button("Salvar");
         salvarButton.setOnAction(e -> {
             try {
                 int trabalhoMin = Integer.parseInt(trabalhoTextField.getText());
                 int descansoMin = Integer.parseInt(descansoTextField.getText());
-
-                // Atualiza as variáveis de configuração (convertendo para segundos)
                 this.cicloTrabalhoSegundos = trabalhoMin * 60;
                 this.ganhoDescansoSegundos = descansoMin * 60;
-                
-                System.out.println("Configurações salvas!");
-                settingsStage.close(); // Fecha a janela de configurações
+                settingsStage.close();
             } catch (NumberFormatException ex) {
-                // Se o usuário digitar texto em vez de número, apenas ignora
                 System.out.println("Erro: Por favor, insira apenas números.");
             }
         });
-
-        // Adiciona os componentes à grade
         grid.add(trabalhoLabel, 0, 0);
         grid.add(trabalhoTextField, 1, 0);
         grid.add(descansoLabel, 0, 1);
         grid.add(descansoTextField, 1, 1);
         grid.add(salvarButton, 1, 2);
-
         Scene settingsScene = new Scene(grid);
         settingsStage.setScene(settingsScene);
-        settingsStage.showAndWait(); // Mostra a janela e espera ela ser fechada
+        settingsStage.showAndWait();
     }
 
     private void setupTrabalhoTimer() {
         trabalhoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             tempoTrabalhoSegundos++;
             timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
-            if (tempoTrabalhoSegundos > 0 && cicloTrabalhoSegundos > 0 && tempoTrabalhoSegundos % cicloTrabalhoSegundos == 0) {
+            if (tempoTrabalhoSegundos > 0 && cicloTrabalhoSegundos > 0
+                    && tempoTrabalhoSegundos % cicloTrabalhoSegundos == 0) {
                 saldoDescansoSegundos += ganhoDescansoSegundos;
                 atualizarUI();
             }
         }));
         trabalhoTimeline.setCycleCount(Timeline.INDEFINITE);
     }
-    
+
     private void setupDescansoTimer() {
         descansoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             saldoDescansoSegundos--;
-            timerLabel.setText("Descanso: " + formatarTempoDescanso(saldoDescansoSegundos));
+            timerLabel.setText(formatarTempoDescanso(saldoDescansoSegundos));
+
             if (saldoDescansoSegundos <= 0) {
                 descansoTimeline.stop();
                 estadoAtual = EstadoApp.PARADO;
@@ -154,27 +137,49 @@ public class App extends Application {
         } else if (estadoAtual == EstadoApp.PARADO) {
             trabalhoTimeline.play();
             estadoAtual = EstadoApp.TRABALHANDO;
+        } else if (estadoAtual == EstadoApp.DESCANSO_PAUSADO) {
+            descansoTimeline.stop();
+            trabalhoTimeline.play();
+            estadoAtual = EstadoApp.TRABALHANDO;
         }
         atualizarUI();
     }
 
-    private void iniciarModoDescanso() {
-        if (saldoDescansoSegundos > 0 && estadoAtual == EstadoApp.PARADO) {
-            trabalhoTimeline.pause();
-            estadoAtual = EstadoApp.DESCANSO;
-            descansoTimeline.play();
-            atualizarUI();
+    private void toggleDescanso() {
+        switch (estadoAtual) {
+            case PARADO:
+                if (saldoDescansoSegundos > 0) {
+                    trabalhoTimeline.pause();
+                    estadoAtual = EstadoApp.DESCANSO;
+                    timerLabel.setText(formatarTempoDescanso(saldoDescansoSegundos));
+                    descansoTimeline.play();
+                }
+                break;
+            case DESCANSO:
+                descansoTimeline.pause();
+                estadoAtual = EstadoApp.DESCANSO_PAUSADO;
+                break;
+            case DESCANSO_PAUSADO:
+                descansoTimeline.play();
+                estadoAtual = EstadoApp.DESCANSO;
+                break;
+            default:
+                break;
         }
+        atualizarUI();
     }
 
     private void atualizarUI() {
         saldoDescansoLabel.setText("Descanso acumulado: " + formatarTempoDescanso(saldoDescansoSegundos));
+
         switch (estadoAtual) {
             case PARADO:
                 iniciarTrabalhoButton.setText("Iniciar Trabalho");
                 iniciarTrabalhoButton.setDisable(false);
+                usarDescansoButton.setText("Usar Descanso");
                 usarDescansoButton.setDisable(saldoDescansoSegundos <= 0);
                 timerLabel.setTextFill(Color.BLACK);
+                timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
                 break;
             case TRABALHANDO:
                 iniciarTrabalhoButton.setText("Pausar Trabalho");
@@ -184,8 +189,16 @@ public class App extends Application {
                 break;
             case DESCANSO:
                 iniciarTrabalhoButton.setDisable(true);
-                usarDescansoButton.setDisable(true);
+                usarDescansoButton.setText("Pausar Descanso");
+                usarDescansoButton.setDisable(false);
                 timerLabel.setTextFill(Color.GREEN);
+                break;
+            case DESCANSO_PAUSADO:
+                iniciarTrabalhoButton.setText("Retomar Trabalho"); // Novo texto
+                iniciarTrabalhoButton.setDisable(false); // Habilitado!
+                usarDescansoButton.setText("Retomar Descanso");
+                usarDescansoButton.setDisable(false);
+                timerLabel.setTextFill(Color.ORANGE);
                 break;
         }
     }
@@ -196,7 +209,7 @@ public class App extends Application {
         int segundos = totalSegundos % 60;
         return String.format("%02d:%02d:%02d", horas, minutos, segundos);
     }
-    
+
     private String formatarTempoDescanso(int totalSegundos) {
         int minutos = totalSegundos / 60;
         int segundos = totalSegundos % 60;
