@@ -1,5 +1,9 @@
 package br.com.zanata.flexrithm;
 
+import com.google.gson.Gson;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -23,8 +27,8 @@ public class App extends Application {
         PARADO, TRABALHANDO, DESCANSO, DESCANSO_PAUSADO
     }
 
-    private int cicloTrabalhoSegundos = 10; // Padrão de teste
-    private int ganhoDescansoSegundos = 15; // Padrão de teste
+    private int cicloTrabalhoSegundos = 30 * 60;
+    private int ganhoDescansoSegundos = 5 * 60;
 
     private Stage primaryStage;
     private Timeline trabalhoTimeline;
@@ -36,10 +40,17 @@ public class App extends Application {
     private Label timerLabel, saldoDescansoLabel;
     private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton;
 
+    // --- Persistência de Dados ---
+    private final Gson gson = new Gson();
+    private final String CAMINHO_ARQUIVO_SAVE = System.getProperty("user.home") + "/flexrithm_dados.json";
+
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
-        timerLabel = new Label("00:00:00");
+        
+        carregarDados();
+
+        timerLabel = new Label();
         timerLabel.setFont(new Font("Arial", 48));
         saldoDescansoLabel = new Label();
         iniciarTrabalhoButton = new Button();
@@ -47,14 +58,13 @@ public class App extends Application {
         configuracoesButton = new Button("Configurações");
 
         iniciarTrabalhoButton.setOnAction(e -> toggleTrabalho());
-        usarDescansoButton.setOnAction(e -> toggleDescanso()); // Ação atualizada
+        usarDescansoButton.setOnAction(e -> toggleDescanso());
         configuracoesButton.setOnAction(e -> abrirTelaConfiguracoes());
 
         setupTrabalhoTimer();
         setupDescansoTimer();
 
-        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton,
-                configuracoesButton);
+        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton, configuracoesButton);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
 
@@ -66,8 +76,13 @@ public class App extends Application {
         atualizarUI();
     }
 
+    @Override
+    public void stop() {
+        salvarDados();
+        System.out.println("Aplicativo fechado, dados salvos!");
+    }
+
     private void abrirTelaConfiguracoes() {
-        // ... (código da tela de configurações permanece o mesmo) ...
         Stage settingsStage = new Stage();
         settingsStage.initModality(Modality.APPLICATION_MODAL);
         settingsStage.initOwner(primaryStage);
@@ -106,24 +121,21 @@ public class App extends Application {
         trabalhoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             tempoTrabalhoSegundos++;
             timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
-            if (tempoTrabalhoSegundos > 0 && cicloTrabalhoSegundos > 0
-                    && tempoTrabalhoSegundos % cicloTrabalhoSegundos == 0) {
+            if (tempoTrabalhoSegundos > 0 && cicloTrabalhoSegundos > 0 && tempoTrabalhoSegundos % cicloTrabalhoSegundos == 0) {
                 saldoDescansoSegundos += ganhoDescansoSegundos;
                 atualizarUI();
             }
         }));
         trabalhoTimeline.setCycleCount(Timeline.INDEFINITE);
     }
-
+    
     private void setupDescansoTimer() {
         descansoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             saldoDescansoSegundos--;
             timerLabel.setText(formatarTempoDescanso(saldoDescansoSegundos));
-
             if (saldoDescansoSegundos <= 0) {
                 descansoTimeline.stop();
                 estadoAtual = EstadoApp.PARADO;
-                timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
                 atualizarUI();
             }
         }));
@@ -171,7 +183,6 @@ public class App extends Application {
 
     private void atualizarUI() {
         saldoDescansoLabel.setText("Descanso acumulado: " + formatarTempoDescanso(saldoDescansoSegundos));
-
         switch (estadoAtual) {
             case PARADO:
                 iniciarTrabalhoButton.setText("Iniciar Trabalho");
@@ -194,8 +205,8 @@ public class App extends Application {
                 timerLabel.setTextFill(Color.GREEN);
                 break;
             case DESCANSO_PAUSADO:
-                iniciarTrabalhoButton.setText("Retomar Trabalho"); // Novo texto
-                iniciarTrabalhoButton.setDisable(false); // Habilitado!
+                iniciarTrabalhoButton.setText("Retomar Trabalho");
+                iniciarTrabalhoButton.setDisable(false);
                 usarDescansoButton.setText("Retomar Descanso");
                 usarDescansoButton.setDisable(false);
                 timerLabel.setTextFill(Color.ORANGE);
@@ -209,11 +220,40 @@ public class App extends Application {
         int segundos = totalSegundos % 60;
         return String.format("%02d:%02d:%02d", horas, minutos, segundos);
     }
-
+    
     private String formatarTempoDescanso(int totalSegundos) {
         int minutos = totalSegundos / 60;
         int segundos = totalSegundos % 60;
         return String.format("%02d:%02d", minutos, segundos);
+    }
+
+    private void salvarDados() {
+        DadosApp dados = new DadosApp();
+        dados.tempoTrabalhoSegundos = this.tempoTrabalhoSegundos;
+        dados.saldoDescansoSegundos = this.saldoDescansoSegundos;
+        dados.cicloTrabalhoSegundos = this.cicloTrabalhoSegundos;
+        dados.ganhoDescansoSegundos = this.ganhoDescansoSegundos;
+        try (FileWriter writer = new FileWriter(CAMINHO_ARQUIVO_SAVE)) {
+            gson.toJson(dados, writer);
+        } catch (IOException e) {
+            System.err.println("Falha ao salvar os dados.");
+            e.printStackTrace();
+        }
+    }
+
+    private void carregarDados() {
+        try (FileReader reader = new FileReader(CAMINHO_ARQUIVO_SAVE)) {
+            DadosApp dados = gson.fromJson(reader, DadosApp.class);
+            if (dados != null) {
+                this.tempoTrabalhoSegundos = dados.tempoTrabalhoSegundos;
+                this.saldoDescansoSegundos = dados.saldoDescansoSegundos;
+                this.cicloTrabalhoSegundos = dados.cicloTrabalhoSegundos;
+                this.ganhoDescansoSegundos = dados.ganhoDescansoSegundos;
+                System.out.println("Dados carregados com sucesso!");
+            }
+        } catch (IOException e) {
+            System.out.println("Nenhum arquivo de save encontrado. Usando valores padrão.");
+        }
     }
 
     public static void main(String[] args) {
