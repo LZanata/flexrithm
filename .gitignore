@@ -1,0 +1,19 @@
+# Arquivos e pastas gerados pelo Maven
+target/
+
+# Arquivos de log
+*.log
+
+# Arquivos de configuração de IDEs
+.idea/
+*.iml
+.settings/
+.classpath
+*.project
+
+# Pasta de configuração do VSCode
+.vscode/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
