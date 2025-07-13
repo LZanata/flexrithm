@@ -29,12 +29,14 @@ public class App extends Application {
 
     private int cicloTrabalhoSegundos = 30 * 60;
     private int ganhoDescansoSegundos = 5 * 60;
+    private int limiteMaximoDescansoSegundos = 60 * 60;
 
     private Stage primaryStage;
     private Timeline trabalhoTimeline, descansoTimeline;
     private int tempoTrabalhoSegundos = 0;
     private int saldoDescansoSegundos = 0;
     private EstadoApp estadoAtual = EstadoApp.PARADO;
+
     private Label timerLabel, saldoDescansoLabel;
     private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton, finalizarTrabalhoButton;
 
@@ -63,7 +65,7 @@ public class App extends Application {
         setupTrabalhoTimer();
         setupDescansoTimer();
 
-        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton, finalizarTrabalhoButton, configuracoesButton); // BOTÃO NOVO ADICIONADO AO LAYOUT
+        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton, finalizarTrabalhoButton, configuracoesButton);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
 
@@ -85,7 +87,7 @@ public class App extends Application {
         if (estadoAtual == EstadoApp.PARADO || estadoAtual == EstadoApp.DESCANSO_PAUSADO) {
             tempoTrabalhoSegundos = 0;
             salvarDados();
-            atualizarUI(); 
+            atualizarUI();
         }
     }
 
@@ -94,31 +96,46 @@ public class App extends Application {
         settingsStage.initModality(Modality.APPLICATION_MODAL);
         settingsStage.initOwner(primaryStage);
         settingsStage.setTitle("Configurações do Flexrithm");
+
         GridPane grid = new GridPane();
         grid.setPadding(new Insets(20));
         grid.setHgap(10);
         grid.setVgap(10);
+
         Label trabalhoLabel = new Label("A cada (minutos de trabalho):");
         TextField trabalhoTextField = new TextField(String.valueOf(cicloTrabalhoSegundos / 60));
+
         Label descansoLabel = new Label("Ganhar (minutos de descanso):");
         TextField descansoTextField = new TextField(String.valueOf(ganhoDescansoSegundos / 60));
+
+        Label limiteLabel = new Label("Limite máx. de descanso (min):");
+        TextField limiteTextField = new TextField(String.valueOf(limiteMaximoDescansoSegundos / 60));
+
         Button salvarButton = new Button("Salvar");
         salvarButton.setOnAction(e -> {
             try {
                 int trabalhoMin = Integer.parseInt(trabalhoTextField.getText());
                 int descansoMin = Integer.parseInt(descansoTextField.getText());
+                int limiteMin = Integer.parseInt(limiteTextField.getText());
+
                 this.cicloTrabalhoSegundos = trabalhoMin * 60;
                 this.ganhoDescansoSegundos = descansoMin * 60;
+                this.limiteMaximoDescansoSegundos = limiteMin * 60;
+                
                 settingsStage.close();
             } catch (NumberFormatException ex) {
                 System.out.println("Erro: Por favor, insira apenas números.");
             }
         });
+
         grid.add(trabalhoLabel, 0, 0);
         grid.add(trabalhoTextField, 1, 0);
         grid.add(descansoLabel, 0, 1);
         grid.add(descansoTextField, 1, 1);
-        grid.add(salvarButton, 1, 2);
+        grid.add(limiteLabel, 0, 2);
+        grid.add(limiteTextField, 1, 2);
+        grid.add(salvarButton, 1, 3);
+
         Scene settingsScene = new Scene(grid);
         settingsStage.setScene(settingsScene);
         settingsStage.showAndWait();
@@ -128,9 +145,13 @@ public class App extends Application {
         trabalhoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             tempoTrabalhoSegundos++;
             timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
+
             if (tempoTrabalhoSegundos > 0 && cicloTrabalhoSegundos > 0 && tempoTrabalhoSegundos % cicloTrabalhoSegundos == 0) {
-                saldoDescansoSegundos += ganhoDescansoSegundos;
-                atualizarUI();
+                if (saldoDescansoSegundos < limiteMaximoDescansoSegundos) {
+                    int novoSaldo = saldoDescansoSegundos + ganhoDescansoSegundos;
+                    saldoDescansoSegundos = Math.min(novoSaldo, limiteMaximoDescansoSegundos);
+                    atualizarUI();
+                }
             }
         }));
         trabalhoTimeline.setCycleCount(Timeline.INDEFINITE);
@@ -245,6 +266,8 @@ public class App extends Application {
         dados.saldoDescansoSegundos = this.saldoDescansoSegundos;
         dados.cicloTrabalhoSegundos = this.cicloTrabalhoSegundos;
         dados.ganhoDescansoSegundos = this.ganhoDescansoSegundos;
+        dados.limiteMaximoDescansoSegundos = this.limiteMaximoDescansoSegundos;
+
         try (FileWriter writer = new FileWriter(CAMINHO_ARQUIVO_SAVE)) {
             gson.toJson(dados, writer);
         } catch (IOException e) {
@@ -261,6 +284,7 @@ public class App extends Application {
                 this.saldoDescansoSegundos = dados.saldoDescansoSegundos;
                 this.cicloTrabalhoSegundos = dados.cicloTrabalhoSegundos;
                 this.ganhoDescansoSegundos = dados.ganhoDescansoSegundos;
+                this.limiteMaximoDescansoSegundos = (dados.limiteMaximoDescansoSegundos > 0) ? dados.limiteMaximoDescansoSegundos : 60 * 60;
                 System.out.println("Dados carregados com sucesso!");
             }
         } catch (IOException e) {
