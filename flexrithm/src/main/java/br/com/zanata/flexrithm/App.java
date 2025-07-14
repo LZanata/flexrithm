@@ -20,12 +20,18 @@ import javafx.scene.text.Font;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import java.util.EnumMap;
+import java.util.Map;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+import javafx.application.Platform;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.text.FontWeight;
 
 public class App extends Application {
 
-    private enum EstadoApp {
-        PARADO, TRABALHANDO, DESCANSO, DESCANSO_PAUSADO
-    }
+    private enum EstadoApp { PARADO, TRABALHANDO, DESCANSO, DESCANSO_PAUSADO }
 
     private int cicloTrabalhoSegundos = 30 * 60;
     private int ganhoDescansoSegundos = 5 * 60;
@@ -36,9 +42,10 @@ public class App extends Application {
     private int tempoTrabalhoSegundos = 0;
     private int saldoDescansoSegundos = 0;
     private EstadoApp estadoAtual = EstadoApp.PARADO;
+    private Map<Conquista, Boolean> estadoConquistas = new EnumMap<>(Conquista.class);
 
     private Label timerLabel, saldoDescansoLabel;
-    private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton, finalizarTrabalhoButton;
+    private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton, finalizarTrabalhoButton, conquistasButton;
 
     private final Gson gson = new Gson();
     private final String CAMINHO_ARQUIVO_SAVE = System.getProperty("user.home") + "/flexrithm_dados.json";
@@ -46,7 +53,7 @@ public class App extends Application {
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
-        
+
         carregarDados();
 
         timerLabel = new Label();
@@ -56,20 +63,23 @@ public class App extends Application {
         usarDescansoButton = new Button();
         configuracoesButton = new Button("Configurações");
         finalizarTrabalhoButton = new Button("Finalizar Trabalho");
+        conquistasButton = new Button("Conquistas");
 
         iniciarTrabalhoButton.setOnAction(e -> toggleTrabalho());
         usarDescansoButton.setOnAction(e -> toggleDescanso());
         configuracoesButton.setOnAction(e -> abrirTelaConfiguracoes());
         finalizarTrabalhoButton.setOnAction(e -> finalizarTrabalho());
+        conquistasButton.setOnAction(e -> abrirTelaConquistas());
 
         setupTrabalhoTimer();
         setupDescansoTimer();
 
-        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton, finalizarTrabalhoButton, configuracoesButton);
+        VBox root = new VBox(20, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton,
+                finalizarTrabalhoButton, configuracoesButton, conquistasButton);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
 
-        Scene scene = new Scene(root, 400, 400);
+        Scene scene = new Scene(root, 400, 450);
         primaryStage.setTitle("Flexrithm");
         primaryStage.setScene(scene);
         primaryStage.show();
@@ -81,6 +91,44 @@ public class App extends Application {
     public void stop() {
         salvarDados();
         System.out.println("Aplicativo fechado, dados salvos!");
+    }
+
+     private void abrirTelaConquistas() {
+        Stage conquistasStage = new Stage();
+        conquistasStage.initModality(Modality.APPLICATION_MODAL);
+        conquistasStage.initOwner(primaryStage);
+        conquistasStage.setTitle("Suas Conquistas");
+
+        ListView<Conquista> listView = new ListView<>();
+        listView.getItems().addAll(Conquista.values());
+
+        listView.setCellFactory(param -> new ListCell<>() {
+            @Override
+            protected void updateItem(Conquista conquista, boolean empty) {
+                super.updateItem(conquista, empty);
+
+                if (empty || conquista == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    boolean desbloqueada = estadoConquistas.getOrDefault(conquista, false);
+                    
+                    Label nomeConquista = new Label((desbloqueada ? "[✓] " : "[ ] ") + conquista.getNome());
+                    nomeConquista.setFont(Font.font("System", FontWeight.BOLD, 14));
+
+                    Label descricaoConquista = new Label(conquista.getDescricao());
+                    descricaoConquista.setWrapText(true);
+
+                    VBox conquistaLayout = new VBox(5, nomeConquista, descricaoConquista);
+                    setGraphic(conquistaLayout);
+                }
+            }
+        });
+
+        VBox layout = new VBox(listView);
+        Scene scene = new Scene(layout, 350, 250);
+        conquistasStage.setScene(scene);
+        conquistasStage.showAndWait();
     }
 
     private void finalizarTrabalho() {
@@ -121,7 +169,7 @@ public class App extends Application {
                 this.cicloTrabalhoSegundos = trabalhoMin * 60;
                 this.ganhoDescansoSegundos = descansoMin * 60;
                 this.limiteMaximoDescansoSegundos = limiteMin * 60;
-                
+
                 settingsStage.close();
             } catch (NumberFormatException ex) {
                 System.out.println("Erro: Por favor, insira apenas números.");
@@ -146,17 +194,22 @@ public class App extends Application {
             tempoTrabalhoSegundos++;
             timerLabel.setText(formatarTempoTrabalho(tempoTrabalhoSegundos));
 
-            if (tempoTrabalhoSegundos > 0 && cicloTrabalhoSegundos > 0 && tempoTrabalhoSegundos % cicloTrabalhoSegundos == 0) {
+            if (tempoTrabalhoSegundos > 0 && cicloTrabalhoSegundos > 0
+                    && tempoTrabalhoSegundos % cicloTrabalhoSegundos == 0) {
                 if (saldoDescansoSegundos < limiteMaximoDescansoSegundos) {
                     int novoSaldo = saldoDescansoSegundos + ganhoDescansoSegundos;
                     saldoDescansoSegundos = Math.min(novoSaldo, limiteMaximoDescansoSegundos);
                     atualizarUI();
                 }
             }
+
+            if (tempoTrabalhoSegundos == 15) { 
+                verificarEdesbloquearConquista(Conquista.FOCADO_POR_1_HORA);
+            }
         }));
         trabalhoTimeline.setCycleCount(Timeline.INDEFINITE);
     }
-    
+
     private void setupDescansoTimer() {
         descansoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             saldoDescansoSegundos--;
@@ -192,6 +245,9 @@ public class App extends Application {
                     trabalhoTimeline.pause();
                     estadoAtual = EstadoApp.DESCANSO;
                     timerLabel.setText(formatarTempoDescanso(saldoDescansoSegundos));
+
+                    verificarEdesbloquearConquista(Conquista.PIONEIRO_DO_DESCANSO);
+
                     descansoTimeline.play();
                 }
                 break;
@@ -211,9 +267,9 @@ public class App extends Application {
 
     private void atualizarUI() {
         saldoDescansoLabel.setText("Descanso acumulado: " + formatarTempoDescanso(saldoDescansoSegundos));
-        
-        boolean podeFinalizar = tempoTrabalhoSegundos > 0 && 
-                               (estadoAtual == EstadoApp.PARADO || estadoAtual == EstadoApp.DESCANSO_PAUSADO);
+
+        boolean podeFinalizar = tempoTrabalhoSegundos > 0 &&
+                (estadoAtual == EstadoApp.PARADO || estadoAtual == EstadoApp.DESCANSO_PAUSADO);
         finalizarTrabalhoButton.setDisable(!podeFinalizar);
 
         switch (estadoAtual) {
@@ -253,11 +309,27 @@ public class App extends Application {
         int segundos = totalSegundos % 60;
         return String.format("%02d:%02d:%02d", horas, minutos, segundos);
     }
-    
+
     private String formatarTempoDescanso(int totalSegundos) {
         int minutos = totalSegundos / 60;
         int segundos = totalSegundos % 60;
         return String.format("%02d:%02d", minutos, segundos);
+    }
+
+    private void verificarEdesbloquearConquista(Conquista conquista) {
+        if (!estadoConquistas.getOrDefault(conquista, false)) {
+            estadoConquistas.put(conquista, true);
+            Platform.runLater(() -> mostrarNotificacaoConquista(conquista));
+            salvarDados();
+        }
+    }
+
+    private void mostrarNotificacaoConquista(Conquista conquista) {
+        Alert alert = new Alert(AlertType.INFORMATION);
+        alert.setTitle("Conquista Desbloqueada!");
+        alert.setHeaderText(conquista.getNome());
+        alert.setContentText(conquista.getDescricao());
+        alert.showAndWait();
     }
 
     private void salvarDados() {
@@ -267,11 +339,14 @@ public class App extends Application {
         dados.cicloTrabalhoSegundos = this.cicloTrabalhoSegundos;
         dados.ganhoDescansoSegundos = this.ganhoDescansoSegundos;
         dados.limiteMaximoDescansoSegundos = this.limiteMaximoDescansoSegundos;
+        dados.conquistasDesbloqueadas.clear();
+        for (Map.Entry<Conquista, Boolean> entry : estadoConquistas.entrySet()) {
+            dados.conquistasDesbloqueadas.put(entry.getKey().name(), entry.getValue());
+        }
 
         try (FileWriter writer = new FileWriter(CAMINHO_ARQUIVO_SAVE)) {
             gson.toJson(dados, writer);
         } catch (IOException e) {
-            System.err.println("Falha ao salvar os dados.");
             e.printStackTrace();
         }
     }
@@ -284,11 +359,22 @@ public class App extends Application {
                 this.saldoDescansoSegundos = dados.saldoDescansoSegundos;
                 this.cicloTrabalhoSegundos = dados.cicloTrabalhoSegundos;
                 this.ganhoDescansoSegundos = dados.ganhoDescansoSegundos;
-                this.limiteMaximoDescansoSegundos = (dados.limiteMaximoDescansoSegundos > 0) ? dados.limiteMaximoDescansoSegundos : 60 * 60;
+                this.limiteMaximoDescansoSegundos = (dados.limiteMaximoDescansoSegundos > 0)
+                        ? dados.limiteMaximoDescansoSegundos
+                        : 60 * 60;
                 System.out.println("Dados carregados com sucesso!");
+                if (dados.conquistasDesbloqueadas != null) {
+                    for (Map.Entry<String, Boolean> entry : dados.conquistasDesbloqueadas.entrySet()) {
+                        try {
+                            Conquista c = Conquista.valueOf(entry.getKey());
+                            estadoConquistas.put(c, entry.getValue());
+                        } catch (IllegalArgumentException e) {
+                        }
+                    }
+                }
             }
         } catch (IOException e) {
-            System.out.println("Nenhum arquivo de save encontrado. Usando valores padrão.");
+            System.out.println("Nenhum arquivo de save encontrado.");
         }
     }
 
