@@ -1,0 +1,36 @@
+/* Estilo geral da janela (o painel principal VBox) */
+.root {
+    -fx-background-color: #f4f4f9; /* Um cinza bem claro, quase branco */
+}
+
+/* Estilo para todos os labels */
+.label {
+    -fx-font-family: "Segoe UI", Arial, sans-serif; /* Uma fonte mais moderna */
+    -fx-text-fill: #333333; /* Cinza escuro para o texto */
+}
+
+/* Estilo para todos os botões */
+.button {
+    -fx-background-color: #007bff; /* Um azul primário bonito */
+    -fx-text-fill: white; /* Texto branco */
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8px; /* Bordas mais arredondadas */
+    -fx-padding: 8px 16px; /* Espaçamento interno */
+}
+
+/* Efeito ao passar o mouse sobre qualquer botão */
+.button:hover {
+    -fx-background-color: #0056b3; /* Um tom de azul mais escuro */
+}
+
+/* Efeito ao clicar em qualquer botão */
+.button:pressed {
+    -fx-background-color: #004085; /* Um tom de azul ainda mais escuro */
+}
+
+/* Estilo específico para o label do timer principal */
+#timer-label {
+    -fx-font-size: 52px;
+    -fx-font-weight: bold;
+}

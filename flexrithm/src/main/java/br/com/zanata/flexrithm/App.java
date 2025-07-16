@@ -32,6 +32,11 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.image.Image;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import java.net.URL;
 
 public class App extends Application {
 
@@ -54,6 +59,7 @@ public class App extends Application {
     private Label timerLabel, saldoDescansoLabel;
     private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton, finalizarTrabalhoButton,
             conquistasButton, relatoriosButton;
+    private ProgressBar descansoProgressBar;
 
     private final Gson gson = new Gson();
     private final String CAMINHO_ARQUIVO_SAVE = System.getProperty("user.home") + "/flexrithm_dados.json";
@@ -61,9 +67,13 @@ public class App extends Application {
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
+
+        primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/icon.png")));
+
         carregarDados();
 
         timerLabel = new Label();
+        timerLabel.setId("timer-label");
         timerLabel.setFont(new Font("Arial", 48));
         saldoDescansoLabel = new Label();
         iniciarTrabalhoButton = new Button();
@@ -72,6 +82,10 @@ public class App extends Application {
         finalizarTrabalhoButton = new Button("Finalizar Trabalho");
         conquistasButton = new Button("Conquistas");
         relatoriosButton = new Button("Relatórios");
+
+        descansoProgressBar = new ProgressBar(0);
+        descansoProgressBar.setPrefWidth(200);
+        descansoProgressBar.setStyle("-fx-accent: #2ecc71;");
 
         iniciarTrabalhoButton.setOnAction(e -> toggleTrabalho());
         usarDescansoButton.setOnAction(e -> toggleDescanso());
@@ -83,12 +97,13 @@ public class App extends Application {
         setupTrabalhoTimer();
         setupDescansoTimer();
 
-        VBox root = new VBox(15, timerLabel, saldoDescansoLabel, iniciarTrabalhoButton, usarDescansoButton,
-                finalizarTrabalhoButton, configuracoesButton, conquistasButton, relatoriosButton);
+        VBox root = new VBox(15, timerLabel, saldoDescansoLabel, descansoProgressBar, iniciarTrabalhoButton,
+                usarDescansoButton, finalizarTrabalhoButton, configuracoesButton, conquistasButton, relatoriosButton);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(20));
 
-        Scene scene = new Scene(root, 400, 450);
+        Scene scene = new Scene(root, 400, 550);
+        scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
         primaryStage.setTitle("Flexrithm");
         primaryStage.setScene(scene);
         primaryStage.show();
@@ -241,13 +256,32 @@ public class App extends Application {
         descansoTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             saldoDescansoSegundos--;
             timerLabel.setText(formatarTempoDescanso(saldoDescansoSegundos));
+
             if (saldoDescansoSegundos <= 0) {
                 descansoTimeline.stop();
                 estadoAtual = EstadoApp.PARADO;
+
+                playSound("/sounds/notification.wav"); // TOCA O SOM!
+
                 atualizarUI();
             }
         }));
         descansoTimeline.setCycleCount(Timeline.INDEFINITE);
+    }
+
+    private void playSound(String soundFile) {
+        try {
+            URL resource = getClass().getResource(soundFile);
+            if (resource != null) {
+                Media sound = new Media(resource.toString());
+                MediaPlayer mediaPlayer = new MediaPlayer(sound);
+                mediaPlayer.play();
+            } else {
+                System.err.println("Arquivo de som não encontrado: " + soundFile);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private int getTotalTrabalhoHoje() {
@@ -312,6 +346,13 @@ public class App extends Application {
         boolean podeFinalizar = tempoSessaoAtualSegundos > 0 &&
                 (estadoAtual == EstadoApp.PARADO || estadoAtual == EstadoApp.DESCANSO_PAUSADO);
         finalizarTrabalhoButton.setDisable(!podeFinalizar);
+
+        if (limiteMaximoDescansoSegundos > 0) {
+            double progresso = (double) saldoDescansoSegundos / limiteMaximoDescansoSegundos;
+            descansoProgressBar.setProgress(progresso);
+        } else {
+            descansoProgressBar.setProgress(0);
+        }
 
         switch (estadoAtual) {
             case PARADO:
@@ -398,7 +439,7 @@ public class App extends Application {
         try (FileReader reader = new FileReader(CAMINHO_ARQUIVO_SAVE)) {
             DadosApp dados = gson.fromJson(reader, DadosApp.class);
             if (dados != null) {
-                this.tempoSessaoAtualSegundos = 0; 
+                this.tempoSessaoAtualSegundos = 0;
                 this.saldoDescansoSegundos = dados.saldoDescansoSegundos;
                 this.cicloTrabalhoSegundos = dados.cicloTrabalhoSegundos > 0 ? dados.cicloTrabalhoSegundos : 30 * 60;
                 this.ganhoDescansoSegundos = dados.ganhoDescansoSegundos > 0 ? dados.ganhoDescansoSegundos : 5 * 60;
