@@ -37,6 +37,8 @@ import javafx.scene.image.Image;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import java.net.URL;
+import java.util.Set;
+import java.util.HashSet;
 
 public class App extends Application {
 
@@ -55,6 +57,7 @@ public class App extends Application {
     private EstadoApp estadoAtual = EstadoApp.PARADO;
     private Map<Conquista, Boolean> estadoConquistas = new EnumMap<>(Conquista.class);
     private Map<String, DadosDiarios> estadoHistorico = new HashMap<>();
+    private Set<String> diasAtivos = new HashSet<>();
 
     private Label timerLabel, saldoDescansoLabel;
     private Button iniciarTrabalhoButton, usarDescansoButton, configuracoesButton, finalizarTrabalhoButton,
@@ -71,6 +74,8 @@ public class App extends Application {
         primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/icon.png")));
 
         carregarDados();
+
+        registrarUsoDiarioEVerificarConquistas();
 
         timerLabel = new Label();
         timerLabel.setId("timer-label");
@@ -116,6 +121,31 @@ public class App extends Application {
         atualizarHistoricoComSessaoAtual();
         salvarDados();
         System.out.println("Aplicativo fechado, dados salvos!");
+    }
+
+    private void registrarUsoDiarioEVerificarConquistas() {
+        String hojeString = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+
+        diasAtivos.add(hojeString);
+
+        verificarConquistaRotina();
+    }
+
+    private void verificarConquistaRotina() {
+        boolean streakDe5Dias = true;
+        for (int i = 0; i < 5; i++) {
+            LocalDate diaParaVerificar = LocalDate.now().minusDays(i);
+            String diaString = diaParaVerificar.format(DateTimeFormatter.ISO_LOCAL_DATE);
+
+            if (!diasAtivos.contains(diaString)) {
+                streakDe5Dias = false;
+                break;
+            }
+        }
+
+        if (streakDe5Dias) {
+            verificarEdesbloquearConquista(Conquista.ROTINA_DE_ACO);
+        }
     }
 
     private void abrirTelaRelatorios() {
@@ -421,8 +451,8 @@ public class App extends Application {
         dados.ganhoDescansoSegundos = this.ganhoDescansoSegundos;
         dados.limiteMaximoDescansoSegundos = this.limiteMaximoDescansoSegundos;
         dados.historicoDiario = this.estadoHistorico;
+        dados.diasAtivos = this.diasAtivos;
 
-        // Limpa o mapa antigo e preenche com o estado atual
         dados.conquistasDesbloqueadas = new HashMap<>();
         for (Map.Entry<Conquista, Boolean> entry : estadoConquistas.entrySet()) {
             dados.conquistasDesbloqueadas.put(entry.getKey().name(), entry.getValue());
@@ -447,6 +477,9 @@ public class App extends Application {
                         ? dados.limiteMaximoDescansoSegundos
                         : 60 * 60;
 
+                if (dados.diasAtivos != null) {
+                    this.diasAtivos = dados.diasAtivos; // Carrega o conjunto de dias ativos
+                }
                 if (dados.historicoDiario != null) {
                     this.estadoHistorico = dados.historicoDiario;
                 }
